@@ -8,8 +8,8 @@ const buildingIDs = {
 	"Recreation Center":18,
 	// "Sayles-Hill Campus Center":19,
 	"Sayles":19,
-	"Main Campus":20,
-	"James Hall":21,
+	"Main Campus":20, // TURBINE
+	"James Hall":21, // SOLAR
 	"Boliou Hall":22,
 	// "Burton Hall":23,
 	"Burton":23,
@@ -47,6 +47,9 @@ const buildingIDs = {
 	"West Gym":46,
 	"Willis Hall":47,
 }
+
+// TURBINE : 20,
+// SOLAR : 21,
 
 
 export default buildingIDs 

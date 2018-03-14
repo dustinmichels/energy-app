@@ -46,6 +46,7 @@ var scaleFactorWater = 400;
 var scaleFactorElectricity = 150;
 var scaleFactorOther = 60;
 
+/* Helper function to convert from javascript Date object to database date format*/
 export function dateToTimestamp(date) {
     year = date.getFullYear();
     month = date.getMonth()+1;
@@ -69,6 +70,7 @@ export function dateToTimestamp(date) {
     return timestamp;
 }
 
+/* Helper function to convert from database date format to javascript Date object */
 export function timestampToDate(timestamp){
     var day = timestamp.substring(8,10);
     var month = timestamp.substring(5,7);
@@ -79,8 +81,14 @@ export function timestampToDate(timestamp){
     return d;
 }
 
+/* Helper function called from ReduxHandler.js */
 export const cleanupData = (data) => {
-    //TODO: change to not be hardcoded
+    if (data.length == 0){
+        console.log("No data to clean up");
+        return 0;
+    }
+
+    //TODO: change to not be hardcoded names
     var total = 0;
     var turb1Name = "Main Campus -  Turbine 1: Public Grid Production";
     var turb2Name = "Main Campus -  Turbine 2 (Kracum): Carleton Grid Production";
@@ -95,10 +103,25 @@ export const cleanupData = (data) => {
     return total;
 }
 
+/* Helper function that returns a list of the names of every building our app is interested in 
+    (e.g. "Burton", "Sayles", etc.) */
 export function getBuildingsList() {
-    // return list of every building name with data (e.g. "Burton", "Sayles", etc.)
-    // /api/buildings/names
-// 
+
+    /* TO DO: un-comment the code block below to fetch actual building names from API
+     *  ^ will require some extra formatting of the returned JSON since the building
+     *    names in the database don't exactly match the names our app uses
+     */
+
+    // var url = 'http://energycomps.its.carleton.edu/api/index.php/buildings';
+    // fetch(url).then((response) => response.json())
+    //     .then((jsonData) => {
+    //         jsonData = cleanupData(jsonData);
+    //         return jsonData;
+    //     })
+    //     .catch(error => next({
+    //         error
+    //     }))
+
     var buildings = ["Burton", "Sayles", "Severance", "Davis", "Musser", "Myers", "Cassat",
                         "Memo", "Nourse", "Evans", "Goodhue", "Watson", "Scoville"];
 
@@ -408,7 +431,7 @@ export function getTotalWindGenerationGraphFormat(timeStart, timeEnd, timeScale,
     return finalTable
 }
 
-// added function to get usage I need
+// Liv's function for putting random data into a graph-usable format
 export function getCurrentGenerationGraphFormat() {
     var totalSolar = getCurrentSolarGeneration();
     var totalWind = getCurrentWindGeneration();
@@ -879,10 +902,8 @@ export function getCampusUtilityConsumptionOverTimeGraphFormat(utility, timeStar
 
         var dataPt = JanData[utilityTable["Burton"]][reformattedDate];
 
-
         if (typeof dataPt == 'undefined') {
             console.log('UNDEFINED DATA POINT (ApiWrappers.js):' + reformattedDate);
-
             dataPt = "0";
         }
 
@@ -1170,41 +1191,6 @@ export function getAllHistoricalGraphData() {
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /*
 Get data in dictionary format of historical building energy usage
 Format: { [Building] > [time Usage] > {data, total} > [utility]
@@ -1214,13 +1200,22 @@ export function getAllHistoricalBuildingGraphData() {
     var currDate = new Date();
     var buildings = getBuildingsList();
     var utilities = ['electricity', 'water', 'gas', 'heat'];
-    var daysAgo = 128; // just over 4 months    
+    var daysAgo = 128; // just over 4 months 
+    /* TO DO: when we migrate away from hard-coded yearly data, 
+        we'll want to change 'daysAgo' to a much larger value (so
+        we can fetch years'-worth of data, not just months'-worth) */
 
     var realData = getFormattedData("Burton", currDate, daysAgo);
+    /* TO DO: migrate away from hard-coded BURTON data; make it reflect
+        each building. To do so, bring the above line inside the loop below,
+        then change "Burton" to 'building'  
+        This will mean we make a call to "getFormattedData" once per building; 
+        there may be a more efficient way of accomplishing this */
 
     for (var i = 0; i < buildings.length; i++) {
         var building = buildings[i];
         historicalBuildingData[building] = realData;
+
         // historicalBuildingData[building] = {};
 
         // dayUsageData = getDayBuildingGraph(currDate, building);
@@ -1371,508 +1366,454 @@ function getYearBuildingGraph(currDate, building) {
 //     return buildings;
 // }
 
-export function getConsumptionDataTableAllBuildings(date) {
-    // Return a table of all relevant data for ALL buildings
-    // Table will have a row for each building
+// export function getConsumptionDataTableAllBuildings(date) {
+//     // Return a table of all relevant data for ALL buildings
+//     // Table will have a row for each building
 
-    // var buildings = getBuildingIDs();
-    var buildings = buildingIDs;
+//     // var buildings = getBuildingIDs();
+//     var buildings = buildingIDs;
 
-    table = {};
-    for (var i=0; i<buildings.length; i++){
-        table[i] = getConsumptionDataTableForBuilding(buildings[i], date);
-    }
+//     table = {};
+//     for (var i=0; i<buildings.length; i++){
+//         table[i] = getConsumptionDataTableForBuilding(buildings[i], date);
+//     }
 
-    return table;
-}
+//     return table;
+// }
 
-export function getConsumptionDataTableForBuilding(building, date) {
-    // Data we need FOR EACH UTILITY TYPE (3 utilities): 
-    // • 7 datapoints: value @ this time of day (hour) over the last 7 days
-    // • 12 datapoints: value @ this time (hour) on this day of the month (1st - 30th) over the last 12 months
-    // • 4 datapoints: value @ this time (hour) on this day of the week (mon/tue/wed)over the last 4 weeks
-    // • 5 datapoints: value @ this day of the year (DD/MM) over the past 5 years
+/* Creates the data object needed for displaying graphs about a building's usage */
+// export function getConsumptionDataTableForBuilding(building, date) {
+//     // Data we need FOR EACH UTILITY TYPE (3 utilities): 
+//     // • 7 datapoints: value @ this time of day (hour) over the last 7 days
+//     // • 12 datapoints: value @ this time (hour) on this day of the month (1st - 30th) over the last 12 months
+//     // • 4 datapoints: value @ this time (hour) on this day of the week (mon/tue/wed)over the last 4 weeks
+//     // • 5 datapoints: value @ this day of the year (DD/MM) over the past 5 years
+//     // TO DO: eliminate redundant API calls (we could make things more efficient here)
 
-    var table = {};
-    // Here's a visual reference for the layout of the data "table" (object, really)
-    table[building] = {
-        electricity:{
-            days: [],
-            weeks: [],
-            months: [],
-            years: []
-        },
-        water:{
-            days: [],
-            weeks: [],
-            months: [],
-            years: []},
-        heat:{
-            days: [],
-            weeks: [],
-            months: [],
-            years: []}
-    };
+//     var table = {};
+//     // Here's a visual reference for the layout of the data "table" (object, really)
+//     table[building] = {
+//         electricity:{
+//             days: [],
+//             weeks: [],
+//             months: [],
+//             years: []
+//         },
+//         water:{
+//             days: [],
+//             weeks: [],
+//             months: [],
+//             years: []},
+//         heat:{
+//             days: [],
+//             weeks: [],
+//             months: [],
+//             years: []}
+//     };
 
-    // var buildingID = getBuildingIDs()[building];
-    var buildingID = buildingIDs[building];
+//     // var buildingID = getBuildingIDs()[building];
+//     var buildingID = buildingIDs[building];
 
-    // Historical data dump only went up until the beginning of 2018
-    // If we pass in a date beyond then, we'll get no data back from the API
-    if (date.getFullYear() > 2017){
-        date = new Date("2017", "00", "01", "00", "00", "00", "00");
-    }
+//     // Historical data dump only went up until the beginning of 2018
+//     // If we pass in a date beyond then, we'll get no data back from the API
+//     if (date.getFullYear() > 2017){
+//         date = new Date("2017", "00", "01", "00", "00", "00", "00");
+//     }
 
-    // get data for last 7 days (value on this hour yesterday, day before,...)
-    for (let daysAgo=0; daysAgo<7; daysAgo++){
-        var start = new Date(date);
-        var end = new Date(date);
+//     // get data for last 7 days (value on this hour yesterday, day before,...)
+//     for (let daysAgo=0; daysAgo<7; daysAgo++){
+//         var start = new Date(date);
+//         var end = new Date(date);
 
-        start.setDate(date.getDate()-daysAgo);
-        end.setDate(date.getDate()-daysAgo);
-        end.setHours(start.getHours() + 1);
+//         start.setDate(date.getDate()-daysAgo);
+//         end.setDate(date.getDate()-daysAgo);
+//         end.setHours(start.getHours() + 1);
 
-        startStamp = dateToTimestamp(start);
-        endStamp = dateToTimestamp(end);
-        var url = 'http://energycomps.its.carleton.edu/api/index.php/values/building/'+buildingID+'/'+startStamp+'/'+endStamp;
+//         startStamp = dateToTimestamp(start);
+//         endStamp = dateToTimestamp(end);
+//         var url = 'http://energycomps.its.carleton.edu/api/index.php/values/building/'+buildingID+'/'+startStamp+'/'+endStamp;
     
-        // console.log(url);
-        fetch(url).then((response) => response.json()).then((responseJson) => {
+//         fetch(url).then((response) => response.json()).then((responseJson) => {
 
-            // console.log(responseJson.length);
+//             if (responseJson.length == 0) {
+//                 console.log("NO DATA: " + url);
+//                 // TO DO: fill in the table with NULL or 0 values rather than completely skipping them
+//             }
 
-            if (responseJson.length == 0) {
-                console.log("NO DATA: " + url);
-                // TO DO: fill in the table with NULL or 0 values rather than completely skipping them
-            }
+//             for (let i =0; i < responseJson.length ; i++) {
 
-            for (let i =0; i < responseJson.length ; i++) {
+//                 obj = responseJson[i];
+//                 // name = obj.name.substring(15,24)
+//                 val = obj.pointvalue.toFixed(2)
+//                 units = obj.units;
 
-                obj = responseJson[i];
-                // name = obj.name.substring(15,24)
-                val = obj.pointvalue.toFixed(2)
-                units = obj.units;
+//                 switch (units) {
+//                     case "kWh":
+//                         table[building].electricity.days.push(val);
+//                         console.log(table);
+//                         break;
+//                     case "kBTU":
+//                         table[building].heat.days.push(val);
+//                         console.log(table);
+//                         break;
+//                     case "gal":
+//                         table[building].water.days.push(val);
+//                         console.log(table);
+//                         break;
+//                 }
 
-                switch (units) {
-                    case "kWh":
-                        table[building].electricity.days.push(val);
-                        console.log(table);
-                        break;
-                    case "kBTU":
-                        table[building].heat.days.push(val);
-                        console.log(table);
-                        break;
-                    case "gal":
-                        table[building].water.days.push(val);
-                        console.log(table);
-                        break;
-                }
+//             }
 
-            }
+//         })
+//         .catch((error) => {
+//             console.error(error);
+//         });
 
-        })
-        .catch((error) => {
-            console.error(error);
-        });
+//     }
 
-    }
+//     // get data for last 12 months (value on this hour of this day last month, month before,...)
+//     for(let monthsAgo=0; monthsAgo<12; monthsAgo++){
+//         var start = new Date(date);
+//         var end = new Date(date);
 
+//         start.setMonth(date.getMonth()-monthsAgo);
+//         end.setMonth(date.getMonth()-monthsAgo);
+//         end.setHours(start.getHours() + 1);
 
-    // get data for last 12 months (value on this hour of this day last month, month before,...)
-    for(let monthsAgo=0; monthsAgo<12; monthsAgo++){
-        var start = new Date(date);
-        var end = new Date(date);
-
-        start.setMonth(date.getMonth()-monthsAgo);
-        end.setMonth(date.getMonth()-monthsAgo);
-        end.setHours(start.getHours() + 1);
-
-        startStamp = dateToTimestamp(start);
-        endStamp = dateToTimestamp(end);
-        var url = 'http://energycomps.its.carleton.edu/api/index.php/values/building/'+buildingID+'/'+startStamp+'/'+endStamp;
+//         startStamp = dateToTimestamp(start);
+//         endStamp = dateToTimestamp(end);
+//         var url = 'http://energycomps.its.carleton.edu/api/index.php/values/building/'+buildingID+'/'+startStamp+'/'+endStamp;
     
-        console.log(url);
-        fetch(url).then((response) => response.json()).then((responseJson) => {
+//         console.log(url);
+//         fetch(url).then((response) => response.json()).then((responseJson) => {
 
-            console.log(responseJson.length);
+//             console.log(responseJson.length);
 
-            if (responseJson.length == 0) {
-                console.log("NO DATA: " + url);
-                // TO DO: fill in the table with NULL or 0 values rather than completely skipping them
-            }
+//             if (responseJson.length == 0) {
+//                 console.log("NO DATA: " + url);
+//                 // TO DO: fill in the table with NULL or 0 values rather than completely skipping them
+//             }
 
-            for (let i =0; i < responseJson.length ; i++) {
+//             for (let i =0; i < responseJson.length ; i++) {
 
-                obj = responseJson[i];
-                // name = obj.name.substring(15,24)
-                val = obj.pointvalue.toFixed(2)
-                units = obj.units;
+//                 obj = responseJson[i];
+//                 // name = obj.name.substring(15,24)
+//                 val = obj.pointvalue.toFixed(2)
+//                 units = obj.units;
 
-                switch (units) {
-                    case "kWh":
-                        table[building].electricity.months.push(val);
-                        console.log(table);
-                        break;
-                    case "kBTU":
-                        table[building].heat.months.push(val);
-                        console.log(table);
-                        break;
-                    case "gal":
-                        table[building].water.months.push(val);
-                        console.log(table);
-                        break;
-                }
+//                 switch (units) {
+//                     case "kWh":
+//                         table[building].electricity.months.push(val);
+//                         console.log(table);
+//                         break;
+//                     case "kBTU":
+//                         table[building].heat.months.push(val);
+//                         console.log(table);
+//                         break;
+//                     case "gal":
+//                         table[building].water.months.push(val);
+//                         console.log(table);
+//                         break;
+//                 }
 
-            }
+//             }
 
-        })
-        .catch((error) => {
-            console.error(error);
-        });
-    }
+//         })
+//         .catch((error) => {
+//             console.error(error);
+//         });
+//     }
 
-    // get data for last 4 weeks (value on this hour of this day last week, week before,...)
-    for(let weeksAgo=0; weeksAgo<4; weeksAgo++){
-        var start = new Date(date);
-        var end = new Date(date);
+//     // get data for last 4 weeks (value on this hour of this day last week, week before,...)
+//     for(let weeksAgo=0; weeksAgo<4; weeksAgo++){
+//         var start = new Date(date);
+//         var end = new Date(date);
 
-        start.setDate(date.getDate()-7*weeksAgo);
-        end.setDate(date.getDate()-7*weeksAgo);
-        end.setHours(start.getHours() + 1);
+//         start.setDate(date.getDate()-7*weeksAgo);
+//         end.setDate(date.getDate()-7*weeksAgo);
+//         end.setHours(start.getHours() + 1);
 
-        startStamp = dateToTimestamp(start);
-        endStamp = dateToTimestamp(end);
-        var url = 'http://energycomps.its.carleton.edu/api/index.php/values/building/'+buildingID+'/'+startStamp+'/'+endStamp;
+//         startStamp = dateToTimestamp(start);
+//         endStamp = dateToTimestamp(end);
+//         var url = 'http://energycomps.its.carleton.edu/api/index.php/values/building/'+buildingID+'/'+startStamp+'/'+endStamp;
     
-        console.log(url);
-        fetch(url).then((response) => response.json()).then((responseJson) => {
+//         console.log(url);
+//         fetch(url).then((response) => response.json()).then((responseJson) => {
 
-            console.log(responseJson.length);
+//             console.log(responseJson.length);
 
-            if (responseJson.length == 0) {
-                console.log("NO DATA: " + url);
-                // TO DO: fill in the table with NULL or 0 values rather than completely skipping them
-            }
+//             if (responseJson.length == 0) {
+//                 console.log("NO DATA: " + url);
+//                 // TO DO: fill in the table with NULL or 0 values rather than completely skipping them
+//             }
 
-            for (let i =0; i < responseJson.length ; i++) {
+//             for (let i =0; i < responseJson.length ; i++) {
 
-                obj = responseJson[i];
-                // name = obj.name.substring(15,24)
-                val = obj.pointvalue.toFixed(2)
-                units = obj.units;
+//                 obj = responseJson[i];
+//                 // name = obj.name.substring(15,24)
+//                 val = obj.pointvalue.toFixed(2)
+//                 units = obj.units;
 
-                switch (units) {
-                    case "kWh":
-                        table[building].electricity.weeks.push(val);
-                        console.log(table);
-                        break;
-                    case "kBTU":
-                        table[building].heat.weeks.push(val);
-                        console.log(table);
-                        break;
-                    case "gal":
-                        table[building].water.weeks.push(val);
-                        console.log(table);
-                        break;
-                }
+//                 switch (units) {
+//                     case "kWh":
+//                         table[building].electricity.weeks.push(val);
+//                         console.log(table);
+//                         break;
+//                     case "kBTU":
+//                         table[building].heat.weeks.push(val);
+//                         console.log(table);
+//                         break;
+//                     case "gal":
+//                         table[building].water.weeks.push(val);
+//                         console.log(table);
+//                         break;
+//                 }
 
-            }
+//             }
 
-        })
-        .catch((error) => {
-            console.error(error);
-        });
-    }
+//         })
+//         .catch((error) => {
+//             console.error(error);
+//         });
+//     }
 
+//     // get data for last 5 years (value on this hour of this day last year, year before,...)
+//     for(let yearsAgo=0; yearsAgo<5; yearsAgo++){
+//         var start = new Date(date);
+//         var end = new Date(date);
 
-    // get data for last 5 years (value on this hour of this day last year, year before,...)
-    for(let yearsAgo=0; yearsAgo<5; yearsAgo++){
-        var start = new Date(date);
-        var end = new Date(date);
+//         start.setFullYear(date.getFullYear()-yearsAgo);
+//         end.setFullYear(date.getFullYear()-yearsAgo);
+//         end.setHours(start.getHours() + 1);
 
-        start.setFullYear(date.getFullYear()-yearsAgo);
-        end.setFullYear(date.getFullYear()-yearsAgo);
-        end.setHours(start.getHours() + 1);
-
-        startStamp = dateToTimestamp(start);
-        endStamp = dateToTimestamp(end);
-        var url = 'http://energycomps.its.carleton.edu/api/index.php/values/building/'+buildingID+'/'+startStamp+'/'+endStamp;
+//         startStamp = dateToTimestamp(start);
+//         endStamp = dateToTimestamp(end);
+//         var url = 'http://energycomps.its.carleton.edu/api/index.php/values/building/'+buildingID+'/'+startStamp+'/'+endStamp;
     
-        console.log(url);
-        fetch(url).then((response) => response.json()).then((responseJson) => {
+//         console.log(url);
+//         fetch(url).then((response) => response.json()).then((responseJson) => {
 
-            console.log(responseJson.length);
+//             console.log(responseJson.length);
 
-            if (responseJson.length == 0) {
-                console.log("NO DATA: " + url);
-                // TO DO: fill in the table with NULL or 0 values rather than completely skipping them 
-            }
+//             if (responseJson.length == 0) {
+//                 console.log("NO DATA: " + url);
+//                 // TO DO: fill in the table with NULL or 0 values rather than completely skipping them 
+//             }
 
-            for (let i =0; i < responseJson.length ; i++) {
+//             for (let i =0; i < responseJson.length ; i++) {
 
-                obj = responseJson[i];
-                // name = obj.name.substring(15,24)
-                val = obj.pointvalue.toFixed(2)
-                units = obj.units;
+//                 obj = responseJson[i];
+//                 // name = obj.name.substring(15,24)
+//                 val = obj.pointvalue.toFixed(2)
+//                 units = obj.units;
 
-                switch (units) {
-                    case "kWh":
-                        table[building].electricity.years.push(val);
-                        console.log(table);
-                        break;
-                    case "kBTU":
-                        table[building].heat.years.push(val);
-                        console.log(table);
-                        break;
-                    case "gal":
-                        table[building].water.years.push(val);
-                        console.log(table);
-                        break;
-                }
+//                 switch (units) {
+//                     case "kWh":
+//                         table[building].electricity.years.push(val);
+//                         console.log(table);
+//                         break;
+//                     case "kBTU":
+//                         table[building].heat.years.push(val);
+//                         console.log(table);
+//                         break;
+//                     case "gal":
+//                         table[building].water.years.push(val);
+//                         console.log(table);
+//                         break;
+//                 }
 
-            }
+//             }
 
-        })
-        .catch((error) => {
-            console.error(error);
-        });
-    }
+//         })
+//         .catch((error) => {
+//             console.error(error);
+//         });
+//     }
 
-}
-
-
+// }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// export function getFormattedData(buildingName, date, daysAgo){
-    // var historicalBuildingData = {};
-    // var buildings = getBuildingsList();
-
-    // var end = new Date(date);
-    // end.setHours(0); // midnight earlier today
-    // var start = new Date(end);
-
-    // if (date.getFullYear() > 2017) {
-    //     start.setFullYear(2017);
-    //     end.setFullYear(2017);
-    // }
-
-    // var numDaysAgo = daysAgo;
-    // start.setDate(start.getDate()-numDaysAgo);
-
-    // startStamp = dateToTimestamp(start);
-    // endStamp = dateToTimestamp(end);
-
-    // var buildingID = buildingIDs[buildingName];
-
-    // var url = 'http://energycomps.its.carleton.edu/api/index.php/values/building/'+buildingID+'/'+startStamp+'/'+endStamp;
-    // console.log(url);
-
-
-    // fetch(url).then((response) => response.json()).then(formatResponse(responseJson)).catch((error) => {
-    //     console.error(error);
-    // });
-
-
-
+/* CRITICAL helper function: takes the JSON returned from API calls in ReduxHandler.js 
+    and processes (sums & repositions) the data to produce the 'historicalBuildingData' 
+    object (which is what all graphs need to access to display data) */
 export function formatResponse(responseJson){
-        var historicalBuildingData = {};
-        var buildings = getBuildingsList();
-        // console.log(responseJson);
-        var daySums = sumHoursToDays(responseJson);
-        var weekSums = sumDaysToWeeks(daySums);
-        var monthSums = sumDaysToMonths(daySums);
-        var yearSums = sumMonthsToYears(monthSums);
+    // takes JSON from and API query to the Carleton database about building usage
+    // returns the properly-formatted 'historicalBuildingData' object 
+    var historicalBuildingData = {};
+    var buildings = getBuildingsList();
+    var daySums = sumHoursToDays(responseJson);
+    var weekSums = sumDaysToWeeks(daySums);
+    var monthSums = sumDaysToMonths(daySums);
+    var yearSums = sumMonthsToYears(monthSums);
 
-        var result = { 
-            "dayUsage":{ 
-                "data" : {"electricity": [], "heat": [], "water": [],},
-                "total":[]
-            }, 
-            "weekUsage":{ 
-                "data" : {"electricity": [], "heat": [], "water": [],},
-                "total":[]
-            }, 
-            "monthUsage":{ 
-                "data" : {"electricity": [], "heat": [], "water": [],},
-                "total":[]
-            }, 
-            "yearUsage":{ 
-                "data" : {"electricity": [], "heat": [], "water": [],},
-                "total":[]
-            } 
-        };
-        
-        // get an array of the most recent 7 items from daySums
-        var daySumsElectric = sortByKey(Object.entries(daySums["electricDictDay"]));
-        var daySumsHeat = sortByKey(Object.entries(daySums["heatDictDay"]));
-        var daySumsWater = sortByKey(Object.entries(daySums["waterDictDay"]));
-        for (let i = 0; i < 7; i++) {
-            var itemElectric = daySumsElectric[i];
-            var objElectric = {"x":"0","y":0};
-            objElectric["x"] = itemElectric[0];
-            objElectric["y"] = itemElectric[1];
-            result["dayUsage"]["data"]["electricity"].push(objElectric);
+    var result = { 
+        "dayUsage":{ 
+            "data" : {"electricity": [], "heat": [], "water": [],},
+            "total":[]
+        }, 
+        "weekUsage":{ 
+            "data" : {"electricity": [], "heat": [], "water": [],},
+            "total":[]
+        }, 
+        "monthUsage":{ 
+            "data" : {"electricity": [], "heat": [], "water": [],},
+            "total":[]
+        }, 
+        "yearUsage":{ 
+            "data" : {"electricity": [], "heat": [], "water": [],},
+            "total":[]
+        } 
+    };
+    
+    // get an array of the most recent 7 items from daySums
+    var daySumsElectric = sortByKey(Object.entries(daySums["electricDictDay"]));
+    var daySumsHeat = sortByKey(Object.entries(daySums["heatDictDay"]));
+    var daySumsWater = sortByKey(Object.entries(daySums["waterDictDay"]));
+    for (let i = 0; i < 7; i++) {
+        var itemElectric = daySumsElectric[i];
+        var objElectric = {"x":"0","y":0};
+        objElectric["x"] = itemElectric[0];
+        objElectric["y"] = itemElectric[1];
+        result["dayUsage"]["data"]["electricity"].push(objElectric);
 
-            var itemHeat = daySumsHeat[i];
-            var objHeat = {"x":"0","y":0};
-            objHeat["x"] = itemHeat[0];
-            objHeat["y"] = itemHeat[1];
-            result["dayUsage"]["data"]["heat"].push(objHeat);
+        var itemHeat = daySumsHeat[i];
+        var objHeat = {"x":"0","y":0};
+        objHeat["x"] = itemHeat[0];
+        objHeat["y"] = itemHeat[1];
+        result["dayUsage"]["data"]["heat"].push(objHeat);
 
-            var itemWater = daySumsWater[i];
-            var objWater = {"x":"0","y":0};
-            objWater["x"] = itemWater[0];
-            objWater["y"] = itemWater[1];
-            result["dayUsage"]["data"]["water"].push(objWater);
+        var itemWater = daySumsWater[i];
+        var objWater = {"x":"0","y":0};
+        objWater["x"] = itemWater[0];
+        objWater["y"] = itemWater[1];
+        result["dayUsage"]["data"]["water"].push(objWater);
 
-            // TO DO: we're assuming itemElectric[0] == itemHeat[0] == itemWater[0] !!!
-            var totalLabel = itemElectric[0]; 
-            var totalVal = objElectric["y"] + objWater["y"] + objHeat["y"];
-            var objTotal = {"x":totalLabel,"y":totalVal};
-            result["dayUsage"]["total"].push(objTotal);
-        }
+        // TO DO: we're assuming itemElectric[0] == itemHeat[0] == itemWater[0] !!!
+        var totalLabel = itemElectric[0]; 
+        var totalVal = objElectric["y"] + objWater["y"] + objHeat["y"];
+        var objTotal = {"x":totalLabel,"y":totalVal};
+        result["dayUsage"]["total"].push(objTotal);
+    }
 
-        // get an array of the most recent 4 items from weekSums
-        var weekSumsElectric = sortByKey(Object.entries(weekSums["electricDictWeek"]));
-        var weekSumsHeat = sortByKey(Object.entries(weekSums["heatDictWeek"]));
-        var weekSumsWater = sortByKey(Object.entries(weekSums["waterDictWeek"]));
-        for (let i = 0; i < 4; i++) {
-            var itemElectric = weekSumsElectric[i];
-            var objElectric = {"x":"0","y":0};
-            objElectric["x"] = itemElectric[0];
-            objElectric["y"] = itemElectric[1];
-            result["weekUsage"]["data"]["electricity"].push(objElectric);
+    // get an array of the most recent 4 items from weekSums
+    var weekSumsElectric = sortByKey(Object.entries(weekSums["electricDictWeek"]));
+    var weekSumsHeat = sortByKey(Object.entries(weekSums["heatDictWeek"]));
+    var weekSumsWater = sortByKey(Object.entries(weekSums["waterDictWeek"]));
+    for (let i = 0; i < 4; i++) {
+        var itemElectric = weekSumsElectric[i];
+        var objElectric = {"x":"0","y":0};
+        objElectric["x"] = itemElectric[0];
+        objElectric["y"] = itemElectric[1];
+        result["weekUsage"]["data"]["electricity"].push(objElectric);
 
-            var itemHeat = weekSumsHeat[i];
-            var objHeat = {"x":"0","y":0};
-            objHeat["x"] = itemHeat[0];
-            objHeat["y"] = itemHeat[1];
-            result["weekUsage"]["data"]["heat"].push(objHeat);
+        var itemHeat = weekSumsHeat[i];
+        var objHeat = {"x":"0","y":0};
+        objHeat["x"] = itemHeat[0];
+        objHeat["y"] = itemHeat[1];
+        result["weekUsage"]["data"]["heat"].push(objHeat);
 
-            var itemWater = weekSumsWater[i];
-            var objWater = {"x":"0","y":0};
-            objWater["x"] = itemWater[0];
-            objWater["y"] = itemWater[1];
-            result["weekUsage"]["data"]["water"].push(objWater);
+        var itemWater = weekSumsWater[i];
+        var objWater = {"x":"0","y":0};
+        objWater["x"] = itemWater[0];
+        objWater["y"] = itemWater[1];
+        result["weekUsage"]["data"]["water"].push(objWater);
 
-            // TO DO: we're assuming itemElectric[0] == itemHeat[0] == itemWater[0] !!!
-            var totalLabel = itemElectric[0]; 
-            var totalVal = objElectric["y"] + objWater["y"] + objHeat["y"];
-            var objTotal = {"x":totalLabel,"y":totalVal};
-            result["weekUsage"]["total"].push(objTotal);
-        }
+        // TO DO: we're assuming itemElectric[0] == itemHeat[0] == itemWater[0] !!!
+        var totalLabel = itemElectric[0]; 
+        var totalVal = objElectric["y"] + objWater["y"] + objHeat["y"];
+        var objTotal = {"x":totalLabel,"y":totalVal};
+        result["weekUsage"]["total"].push(objTotal);
+    }
 
-        // get an array of the most recent 4 items from monthSums
-        var monthSumsElectric = sortByKey(Object.entries(monthSums["electricDictMonth"]));
-        var monthSumsHeat = sortByKey(Object.entries(monthSums["heatDictMonth"]));
-        var monthSumsWater = sortByKey(Object.entries(monthSums["waterDictMonth"]));
-        for (let i = 0; i < 4; i++) {
-            var itemElectric = monthSumsElectric[i];
-            var objElectric = {"x":"0","y":0};
-            objElectric["x"] = itemElectric[0];
-            objElectric["y"] = itemElectric[1];
-            result["monthUsage"]["data"]["electricity"].push(objElectric);
+    // get an array of the most recent 4 items from monthSums
+    var monthSumsElectric = sortByKey(Object.entries(monthSums["electricDictMonth"]));
+    var monthSumsHeat = sortByKey(Object.entries(monthSums["heatDictMonth"]));
+    var monthSumsWater = sortByKey(Object.entries(monthSums["waterDictMonth"]));
+    for (let i = 0; i < 4; i++) {
+        var itemElectric = monthSumsElectric[i];
+        var objElectric = {"x":"0","y":0};
+        objElectric["x"] = itemElectric[0];
+        objElectric["y"] = itemElectric[1];
+        result["monthUsage"]["data"]["electricity"].push(objElectric);
 
-            var itemHeat = monthSumsHeat[i];
-            var objHeat = {"x":"0","y":0};
-            objHeat["x"] = itemHeat[0];
-            objHeat["y"] = itemHeat[1];
-            result["monthUsage"]["data"]["heat"].push(objHeat);
+        var itemHeat = monthSumsHeat[i];
+        var objHeat = {"x":"0","y":0};
+        objHeat["x"] = itemHeat[0];
+        objHeat["y"] = itemHeat[1];
+        result["monthUsage"]["data"]["heat"].push(objHeat);
 
-            var itemWater = monthSumsWater[i];
-            var objWater = {"x":"0","y":0};
-            objWater["x"] = itemWater[0];
-            objWater["y"] = itemWater[1];
-            result["monthUsage"]["data"]["water"].push(objWater);
+        var itemWater = monthSumsWater[i];
+        var objWater = {"x":"0","y":0};
+        objWater["x"] = itemWater[0];
+        objWater["y"] = itemWater[1];
+        result["monthUsage"]["data"]["water"].push(objWater);
 
-            // TO DO: we're assuming itemElectric[0] == itemHeat[0] == itemWater[0] !!!
-            var totalLabel = itemElectric[0]; 
-            var totalVal = objElectric["y"] + objWater["y"] + objHeat["y"];
-            var objTotal = {"x":totalLabel,"y":totalVal};
-            result["monthUsage"]["total"].push(objTotal);
-
-        }
-
-        // add year data 
-        // HARD-CODED (real data!) for now because the API won't return more than 1 year of data at a time
-        // TO-DO: don't rely on hard-coded data; make an API query for each year
-        var burtonYearlySums = {
-            "data":{
-                "electricity":[
-                    {"x":2018, "y":28670},
-                    {"x":2017, "y":170955},
-                    {"x":2016, "y":164863},
-                    {"x":2015, "y":169940},
-                    {"x":2014, "y":168883},
-                    {"x":2013, "y":150891},
-                ],
-                "heat":[
-                    {"x":2018, "y":982493},
-                    {"x":2017, "y":2489862},
-                    {"x":2016, "y":2481243},
-                    {"x":2015, "y":2431114},
-                    {"x":2014, "y":2650242},
-                    {"x":2013, "y":432652},
-                ],
-                "water":[
-                    {"x":2018, "y":440388},
-                    {"x":2017, "y":49336252},
-                    {"x":2016, "y":1936451},
-                    {"x":2015, "y":1827384},
-                    {"x":2014, "y":1460462},
-                    {"x":2013, "y":1026886},
-                ],
-            },
-            "total":[
-                {"x":2018, "y":1451551},
-                {"x":2017, "y":51997069},
-                {"x":2016, "y":4582557},
-                {"x":2015, "y":4428439},
-                {"x":2014, "y":4279588},
-                {"x":2013, "y":1610431},
-            ]
-        };
-        result["yearUsage"] = burtonYearlySums;
-
-        for (var i = 0; i < buildings.length; i++) {
-            var building = buildings[i];
-            historicalBuildingData[building] = result;
-        }
-
-        console.log(historicalBuildingData["Burton"]);
-        return historicalBuildingData;
+        // TO DO: we're assuming itemElectric[0] == itemHeat[0] == itemWater[0] !!!
+        var totalLabel = itemElectric[0]; 
+        var totalVal = objElectric["y"] + objWater["y"] + objHeat["y"];
+        var objTotal = {"x":totalLabel,"y":totalVal};
+        result["monthUsage"]["total"].push(objTotal);
 
     }
-    
 
+    // add year data 
+    var burtonYearlySums = {
+        // HARD-CODED (real data!) from a Lucid data dump 
+        // This is a quick fix for now because the API won't return more than 1 year of data at a time
+        // TO-DO: don't rely on hard-coded data; make an API query for each year
+        "data":{
+            "electricity":[
+                {"x":2018, "y":28670},
+                {"x":2017, "y":170955},
+                {"x":2016, "y":164863},
+                {"x":2015, "y":169940},
+                {"x":2014, "y":168883},
+                {"x":2013, "y":150891},
+            ],
+            "heat":[
+                {"x":2018, "y":982493},
+                {"x":2017, "y":2489862},
+                {"x":2016, "y":2481243},
+                {"x":2015, "y":2431114},
+                {"x":2014, "y":2650242},
+                {"x":2013, "y":432652},
+            ],
+            "water":[
+                {"x":2018, "y":440388},
+                // {"x":2017, "y":49336252}, // < This nuber is ABSURD 
+                // There's no way Burton used 50 million gallons of water in 1 year
+                // The Lucid data dump says Burton used 47,243,176.9992 gallons in June of 2017 alone
+                // This can't be right: replacing it with a more-realistic (FAKE) value below:
+                {"x":2017, "y":1936252}, // This is NOT the value from Lucid
+                {"x":2016, "y":1936451},
+                {"x":2015, "y":1827384},
+                {"x":2014, "y":1460462},
+                {"x":2013, "y":1026886},
+            ],
+        },
+        "total":[
+            {"x":2018, "y":1451551},
+            {"x":2017, "y":4597069},
+            {"x":2016, "y":4582557},
+            {"x":2015, "y":4428439},
+            {"x":2014, "y":4279588},
+            {"x":2013, "y":1610431},
+        ]
+    };
+    result["yearUsage"] = burtonYearlySums;
+
+    for (var i = 0; i < buildings.length; i++) {
+        var building = buildings[i];
+        historicalBuildingData[building] = result;
+    }
+
+    return historicalBuildingData;
+
+}
+    
+/* Sums up data within each day, compressing it into one sum value for that day
+    Takes JSON data from API call
+    Returns 3 dictionaries (keys = dates, vals = sums): 1 dictionary for each utility */
 function sumHoursToDays(responseJson){
 
     electricDictDay = {};
@@ -1923,7 +1864,7 @@ function sumHoursToDays(responseJson){
 }
 
 function sumDaysToWeeks(daySums){
-    // takes a dictionary of day sums (3 nested dictionaries: 1 for each utility).
+    // takes a dictionary of day sums (3 dictionaries: 1 for each utility).
     // returns 3 dictionaries (1 for each utility) nested within a larger object.
     // values are sums of usage data over 7 days
     // keys are the timstamps for the START of the summed week
@@ -2016,6 +1957,10 @@ function sumDaysToWeeks(daySums){
 }
 
 function sumDaysToMonths(daySums){
+    // takes a dictionary of day sums (3 dictionaries: 1 for each utility).
+    // returns 3 dictionaries (1 for each utility) nested within a larger object.
+    // values are sums of usage data over each month
+    // keys are the timstamps for the START of the summed month
 
     electricDictDay = daySums["electricDictDay"];
     heatDictDay = daySums["heatDictDay"];
@@ -2110,6 +2055,10 @@ function sumDaysToMonths(daySums){
 
 
 function sumMonthsToYears(monthSums){
+    // takes a dictionary of day sums (3 dictionaries: 1 for each utility).
+    // returns 3 dictionaries (1 for each utility) nested within a larger object.
+    // values are sums of usage data over 12 months
+    // keys are the timstamps for the START of the summed month
 
     electricDictMonth = monthSums["electricDictMonth"];
     heatDictMonth = monthSums["heatDictMonth"];

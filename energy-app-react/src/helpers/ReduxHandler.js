@@ -12,81 +12,64 @@ import { calculateRatio } from './General';
 /* When adding new redux calls that you want to happen at start up, call them in this handler
  * but define them in their own reducer (see below) */
 
-// async getBuildingData(){
-//     let result = await getFormattedData("Burton", currDate, daysAgo);
-//     return result;
-// }
-
 export const handler = store => next => action => {
     next(action);
 
     switch (action.type) {
         case 'GET_BUILDING_GRAPH_DATA':
             store.dispatch({type: 'GET_BUILDING_GRAPH_DATA_LOADING'});
-            // try {
 
+            var date = new Date();
+            var daysAgo = 128; // just over 4 months
 
-                var date = new Date();
-                var daysAgo = 128; // just over 4 months
-                // // var historicalBuildingData = getBuildingData();
-                // var historicalBuildingData = getFormattedData("Burton", currDate, daysAgo);
-                // console.log("HERE~~~ ", historicalBuildingData);
+            var historicalBuildingData = {};
+            // var buildings = getBuildingsList();
 
-                var historicalBuildingData = {};
-                // var buildings = getBuildingsList();
+            var end = new Date(date);
+            end.setHours(0); // midnight earlier today
+            var start = new Date(end);
 
-                var end = new Date(date);
-                end.setHours(0); // midnight earlier today
-                var start = new Date(end);
+            if (date.getFullYear() > 2017) {
+                start.setFullYear(2017);
+                end.setFullYear(2017);
+            }
 
-                if (date.getFullYear() > 2017) {
-                    start.setFullYear(2017);
-                    end.setFullYear(2017);
-                }
+            start.setDate(start.getDate()-daysAgo);
 
-                start.setDate(start.getDate()-daysAgo);
+            startStamp = dateToTimestamp(start);
+            endStamp = dateToTimestamp(end);
 
-                startStamp = dateToTimestamp(start);
-                endStamp = dateToTimestamp(end);
+            // TO DO: migrate away from hard-coded BURTON data 
+            var buildingID = 23; // 23 = BURTON
+            // var buildingID = buildingIDs[buildingName];
 
-                // var buildingID = buildingIDs[buildingName];
-                var buildingID = 23;
+            var url = 'http://energycomps.its.carleton.edu/api/index.php/values/building/'+buildingID+'/'+startStamp+'/'+endStamp;
+            
+            /* CRUCIAL (for now) that the API call happens in ReduxHandler.js
+                It used to happen in ApiWrappers.js but that caused synchronization errors
+                (the call would complete and return NULL before the JSON got returned from the API)
+                TO DO: implement robust async API calls so we can move this back into ApiWrappers.js */
+            
 
-                var url = 'http://energycomps.its.carleton.edu/api/index.php/values/building/'+buildingID+'/'+startStamp+'/'+endStamp;
-                console.log(url);
+            var currentBuildingData = getAllCurrentBuildingGraphData();
 
-                var currentBuildingData = getAllCurrentBuildingGraphData();
+            fetch(url)
+                .then((response) => response.json())
+                .then((responseJson) => { 
+                    responseJson = formatResponse(responseJson);
+                    return responseJson;
+            })
+            .then(historicalBuildingData => next({
 
-                fetch(url)
-                    .then((response) => response.json())
-                    .then((responseJson) => { 
-                        responseJson = formatResponse(responseJson);
-                        return responseJson;
-                })
-                .then(historicalBuildingData => next({
-
-                        type: 'GET_BUILDING_GRAPH_DATA_RECEIVED',
-                        historicalBuildingData,
-                        currentBuildingData
-                    
-                }))
-                .catch(error => next({
-                    type: 'GET_BUILDING_GRAPH_DATA_ERROR',
-                    error
-                }))
-
-
-
-            //     store.dispatch({
-            //         type: 'GET_BUILDING_GRAPH_DATA_RECEIVED',
-            //         historicalBuildingData,
-            //         currentBuildingData
-            //     });
-            // } catch (error) {
-            //     next({
-            //         type: 'GET_BUILDING_GRAPH_DATA_ERROR',
-            //     });
-            // }
+                    type: 'GET_BUILDING_GRAPH_DATA_RECEIVED',
+                    historicalBuildingData,
+                    currentBuildingData
+                
+            }))
+            .catch(error => next({
+                type: 'GET_BUILDING_GRAPH_DATA_ERROR',
+                error
+            }))
 
             break;
         case 'GET_GRAPH_DATA':

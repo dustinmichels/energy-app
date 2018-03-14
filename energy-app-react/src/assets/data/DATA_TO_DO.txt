@@ -1,6 +1,8 @@
 ISSUES TO WRESTLE WITH:
 
-• Can’t get more than 1 year’s-worth of data at a time from the Carleton database (at least not with the API call we’ve been using). Currently the “yearly” data are hard-coded sums; we’ll want to replace these with a routine that actually makes the API query and sums the REAL data that come back.
+• The most crucial “real” data-retrieving code lives at the end of the ApiWrappers.js file. There’s quite a bit of inefficient, redundant code here that could benefit from some smarter thinking about (A) how we get data from the API, and (B) how we process (sum & package) those data for use in graphical visualizations. I’m sorry I didn’t have time to make this section nicer — I was focused on just getting SOME “real” data retrieval to work. 
+
+• We currently can’t get more than 1 year’s-worth of data at a time from the Carleton database (at least not with the API call we’ve been using). Currently the “yearly” data are hard-coded sums; we’ll want to replace these with a routine that actually makes the API query and sums the REAL data that come back. I doubt we’d want the database to return more than a year’s-worth of data at a time, 
 
 • We’ll need to retrieve buildingIDs (for the url API query) from the database itself rather than assuming Burton is (and will always be) buildingID 23, for example.
 
@@ -18,14 +20,14 @@ ISSUES TO WRESTLE WITH:
 		"Recreation Center":18,
 		// "Sayles-Hill Campus Center":19,
 		"Sayles":19,
-		"Main Campus":20,
-		"James Hall":21,
+		"Main Campus":20, // TURBINE
+		"James Hall":21, // SOLAR
 		"Boliou Hall":22,
 		// "Burton Hall":23,
 		"Burton":23,
 		// "Cassat Hall":24,
 		"Cassat":24, // NO WATER (just electricity and heat) 
-		"Cassat Hall\/James Hall":25, // NO ELECTRICITY (just heat/water) 
+		"Cassat Hall\/James Hall":25, // NO ELECTRICITY 
 		"Memo":25, // NO ELECTRICITY (just heat and water)
 		"CMC":26,
 		"Cowling Gym":27,
@@ -61,4 +63,10 @@ ISSUES TO WRESTLE WITH:
 
 • The way we’re currently pulling “real” data from the database is dumb — there’s a lot of unnecessarily-repeated code in “sumDaysToWeeks” and “sumDaysToMonths” (sorry; it was a quick fix).
 
+• There’s a very anomalous data point for Burton water usage: Lucid says Burton used 47,243,176.9992 gallons in June of 2017 alone — there’s no way that’s right.
 
+• CONCEPTUAL FLAW: The “Day” time window should really show you hourly usage over the last 24 hours instead of daily usage over the past 7 days (that’s what the “Week” timeframe should show), etc. I have no idea how or why we decided NOT to do it this way… but it was not an intuitive choice. Note: this would probably entail creating a new timeframe button on the graphs (maybe “All” e.g.) to show you what the current “Year” timeframe shows: yearly usage over the past x years (currently x=5, but x++ as time goes on).
+
+• x-axis labels on graphs (in the ‘feature/api’ branch) need some re-formatting
+
+ 
